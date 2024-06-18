@@ -1,10 +1,6 @@
 import streamlit as st
 from playwright.sync_api import sync_playwright
 import os
-from dotenv import load_dotenv
-
-# .env 파일 로드
-load_dotenv()
 
 # 크롤링 함수 정의
 def crawl_tweets(usernames):
