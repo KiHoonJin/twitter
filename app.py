@@ -2,6 +2,9 @@ import streamlit as st
 from playwright.sync_api import sync_playwright
 import os
 
+# Playwright 브라우저 설치
+os.system("playwright install")
+
 # 크롤링 함수 정의
 def crawl_tweets(usernames):
     tweets = {}
