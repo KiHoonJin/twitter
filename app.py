@@ -69,4 +69,23 @@ if st.button("Analyze"):
         st.write(f"**Keywords:** {', '.join(data['keywords'])}")
 
     st.write("## Raw Tweets")
-    for user, tw​⬤
+    for user, tws in tweets.items():
+        st.write(f"### {user}")
+        st.write('\n'.join(tws))
+
+# 파일 저장
+if st.button("Download Summary"):
+    with open('summary.txt', 'w', encoding='utf-8') as f:
+        for user, data in summary.items():
+            f.write(f"### {user}\n")
+            f.write(f"**Summary:** {data['summary']}\n")
+            f.write(f"**Keywords:** {', '.join(data['keywords'])}\n\n")
+    st.success('Summary saved as summary.txt')
+    
+if st.button("Download Raw Data"):
+    with open('raw_tweets.txt', 'w', encoding='utf-8') as f:
+        for user, tws in tweets.items():
+            f.write(f"### {user}\n")
+            f.write('\n'.join(tws))
+            f.write('\n\n')
+    st.success('Raw data saved as raw_tweets.txt')
