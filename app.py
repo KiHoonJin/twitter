@@ -1,45 +1,33 @@
 import streamlit as st
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.options import Options
+from playwright.sync_api import sync_playwright
 import os
-import time
 
+# 크롤링 함수 정의
 def crawl_tweets(usernames):
     tweets = {}
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--remote-debugging-port=9222")
-    chrome_options.add_argument("--disable-extensions")
-    chrome_options.add_argument("--disable-infobars")
-    chrome_options.add_argument("--disable-logging")
-    chrome_options.add_argument("--window-size=1920,1080")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
 
-    driver = webdriver.Chrome(service=Service("/usr/local/bin/chromedriver"), options=chrome_options)
+        # 트위터 로그인
+        page.goto('https://x.com/i/flow/login')
+        page.fill('input[name="text"]', os.getenv('TWITTER_USERNAME'))
+        page.click('div[data-testid="LoginForm_Login_Button"]')
+        page.wait_for_timeout(2000)  # 2초 대기
+        page.fill('input[name="password"]', os.getenv('TWITTER_PASSWORD'))
+        page.click('div[data-testid="LoginForm_Login_Button"]')
+        page.wait_for_timeout(5000)  # 로그인 후 5초 대기
 
-    driver.get('https://x.com/i/flow/login')
-    driver.find_element(By.NAME, 'text').send_keys(os.getenv('TWITTER_USERNAME'))
-    driver.find_element(By.NAME, 'text').send_keys(Keys.RETURN)
-    time.sleep(2)
-    driver.find_element(By.NAME, 'password').send_keys(os.getenv('TWITTER_PASSWORD'))
-    driver.find_element(By.NAME, 'password').send_keys(Keys.RETURN)
-    time.sleep(5)
-
-    for user in usernames:
-        driver.get(f'https://twitter.com/{user}')
-        time.sleep(5)
-        tweets[user] = []
-        for tweet in driver.find_elements(By.CSS_SELECTOR, 'div[data-testid="tweetText"]'):
-            tweets[user].append(tweet.text)
-    
-    driver.quit()
+        for user in usernames:
+            page.goto(f'https://twitter.com/{user}')
+            page.wait_for_timeout(5000)  # 5초 대기
+            tweets[user] = []
+            for tweet in page.query_selector_all('div[data-testid="tweetText"]'):
+                tweets[user].append(tweet.text_content())
+        browser.close()
     return tweets
 
+# 텍스트 요약 및 키워드 추출 함수 정의
 def summarize_and_extract_keywords(tweets):
     summary = {}
     for user, tws in tweets.items():
@@ -51,15 +39,17 @@ def summarize_and_extract_keywords(tweets):
     return summary
 
 def extract_keywords(text):
+    # 간단한 키워드 추출 예제
     from collections import Counter
     words = text.split()
     keywords = Counter(words).most_common(10)
     return [word for word, freq in keywords]
 
+# Streamlit UI 구성
 st.title("Twitter Trend Analysis")
 st.write("Analyze recent tweets from specified Twitter accounts and extract trends and keywords.")
 
-user_input = st.text_area("Enter Twitter accounts (one per line)", "DegenerateNews\nWatcherGuru\nCoinDesk\nCointelegraph\ncrypto")
+user_input = st.text_area("Enter Twitter accounts (one per line)", "DegenerateNews\nWatcherGuru\nVitalikButerin\nCointelegraph\ncrypto")
 usernames = [u.strip() for u in user_input.split('\n') if u.strip()]
 
 if st.button("Analyze"):
@@ -79,6 +69,7 @@ if st.button("Analyze"):
         st.write(f"### {user}")
         st.write('\n'.join(tws))
 
+# 파일 저장
 if st.button("Download Summary"):
     with open('summary.txt', 'w', encoding='utf-8') as f:
         for user, data in summary.items():
@@ -86,7 +77,7 @@ if st.button("Download Summary"):
             f.write(f"**Summary:** {data['summary']}\n")
             f.write(f"**Keywords:** {', '.join(data['keywords'])}\n\n")
     st.success('Summary saved as summary.txt')
-
+    
 if st.button("Download Raw Data"):
     with open('raw_tweets.txt', 'w', encoding='utf-8') as f:
         for user, tws in tweets.items():
